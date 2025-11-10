@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA DE TICKETS BET.365</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #2c2c2c;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 90%;
+            max-width: 500px;
+        }
+        h2 {
+            color: #ffcc00; /* Color llamativo para títulos */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #3a3a3a;
+            color: #f5f5f5;
+            box-sizing: border-box; /* Incluye padding y borde en el ancho total */
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .error {
+            color: #ff4d4d;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        /* Estilos de la aplicación principal */
+        .app-section {
+            display: none;
+        }
+        .options-group {
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .option-item {
+            margin-bottom: 10px;
+        }
+        .option-item input[type="radio"] {
+            margin-right: 10px;
+        }
+        .count-box, .history-box {
+            background-color: #3a3a3a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+        }
+        .history-box ul {
+            list-style-type: none;
+            padding: 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .history-box ul li {
+            padding: 5px 0;
+            border-bottom: 1px solid #444;
+        }
+        .history-box ul li:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div id="login-section">
+        <h2>Ingreso al Sistema de Tickets</h2>
+        <label for="username">Usuario:</label>
+        <input type="text" id="username" placeholder="Ingresa tu usuario">
+        <label for="password">Contraseña:</label>
+        <input type="password" id="password" placeholder="Ingresa tu contraseña">
+        <p class="error" id="login-error"></p>
+        <button onclick="handleLogin()">Iniciar Sesión</button>
+    </div>
+
+    <div id="app-section" class="app-section">
+        <h2>Generar Ticket - BET.365</h2>
+
+        <div class="options-group">
+            <p>Seleccione el valor de la recarga:</p>
+            <div class="option-item">
+                <input type="radio" id="opcion500" name="recarga" value="500">
+                <label for="opcion500">$500 (BONOS)</label>
+            </div>
+            <div class="option-item">
+                <input type="radio" id="opcion1000" name="recarga" value="1000">
+                <label for="opcion1000">$1000 (BONOS)</label>
+            </div>
+            <div class="option-item">
+                <input type="radio" id="opcion2000" name="recarga" value="2000">
+                <label for="opcion2000">$2000 (BONOS)</label>
+            </div>
+            <button onclick="registerSelection()">Registrar Selección</button>
+        </div>
+
+        <div class="count-box">
+            <h3>📈 Contador de Selecciones</h3>
+            <p>$500: <span id="count500">0</span> veces</p>
+            <p>$1000: <span id="count1000">0</span> veces</p>
+            <p>$2000: <span id="count2000">0</span> veces</p>
+        </div>
+
+        <div class="history-box">
+            <h3>🕒 Historial de Tickets</h3>
+            <ul id="history-list">
+                </ul>
+        </div>
+        
+        <button style="margin-top: 20px; background-color: #cc0000;" onclick="handleLogout()">Cerrar Sesión</button>
+    </div>
+</div>
+
+<script>
+    // --- 1. CONFIGURACIÓN Y VARIABLES GLOBALES (MÚLTIPLES USUARIOS) ---
+    
+    // Objeto que almacena múltiples usuarios y sus contraseñas
+    const USER_CREDENTIALS = {
+        'max': '123456', 
+        'yuliana': '456789', 
+        'supervisor': '321654',
+        'usuario_a': 'pass1', // Ejemplo de nuevo usuario individual
+        'usuario_b': 'pass2'  // Ejemplo de otro usuario individual
+    };
+    
+    // Nueva variable para almacenar el usuario que está actualmente logueado
+    let CURRENT_USER = null; 
+
+    const loginSection = document.getElementById('login-section');
+    const appSection = document.getElementById('app-section');
+    const loginError = document.getElementById('login-error');
+    const historyList = document.getElementById('history-list');
+
+    // Inicializamos con valores vacíos, los datos reales se cargarán por usuario
+    let counters = { '500': 0, '1000': 0, '2000': 0 };
+    let history = [];
+
+    // --- 2. FUNCIONES DE MANEJO DE DATOS POR USUARIO ---
+
+    // La clave de almacenamiento ahora incluye el nombre de usuario
+    function getCounterKey(user) {
+        return `ticketCounters_${user}`;
+    }
+    function getHistoryKey(user) {
+        return `ticketHistory_${user}`;
+    }
+
+    function loadData() {
+        if (!CURRENT_USER) return; // No cargar si nadie está logueado
+
+        const storedCounters = localStorage.getItem(getCounterKey(CURRENT_USER));
+        const storedHistory = localStorage.getItem(getHistoryKey(CURRENT_USER));
+
+        // Cargar o inicializar contadores
+        if (storedCounters) {
+            counters = JSON.parse(storedCounters);
+        } else {
+            // Inicializar si es la primera vez que inicia sesión
+            counters = { '500': 0, '1000': 0, '2000': 0 }; 
+        }
+        
+        // Cargar o inicializar historial
+        if (storedHistory) {
+            history = JSON.parse(storedHistory);
+        } else {
+            history = [];
+        }
+        
+        updateDisplay();
+    }
+
+    function saveData() {
+        if (!CURRENT_USER) return; // No guardar si nadie está logueado
+        
+        localStorage.setItem(getCounterKey(CURRENT_USER), JSON.stringify(counters));
+        localStorage.setItem(getHistoryKey(CURRENT_USER), JSON.stringify(history));
+    }
+
+    // --- 3. FUNCIONES DE LA INTERFAZ DE USUARIO ---
+
+    function updateDisplay() {
+        // ... (El código de actualización de la interfaz permanece igual) ...
+        document.getElementById('count500').textContent = counters['500'];
+        document.getElementById('count1000').textContent = counters['1000'];
+        document.getElementById('count2000').textContent = counters['2000'];
+
+        historyList.innerHTML = '';
+        history.slice().reverse().forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = `${item.time} - Ticket de $${item.value} registrado.`;
+            historyList.appendChild(li);
+        });
+    }
+
+    // --- 4. FUNCIÓN DE LOGIN (Actualizada para guardar el usuario) ---
+
+    function handleLogin() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        
+        if (USER_CREDENTIALS.hasOwnProperty(user) && USER_CREDENTIALS[user] === pass) {
+            // Establecer el usuario actual
+            CURRENT_USER = user; 
+            
+            loginSection.style.display = 'none';
+            appSection.style.display = 'block';
+            loginError.textContent = '';
+            
+            // Cargar los datos ESPECÍFICOS de este usuario
+            loadData(); 
+        } else {
+            loginError.textContent = 'Usuario o contraseña incorrectos.';
+        }
+    }
+    
+    // --- 5. FUNCIÓN DE LOGOUT (Actualizada para limpiar el usuario) ---
+    
+    function handleLogout() {
+        // Limpiar el usuario actual
+        CURRENT_USER = null; 
+        
+        document.getElementById('username').value = ''; 
+        document.getElementById('password').value = '';
+        
+        loginSection.style.display = 'block';
+        appSection.style.display = 'none';
+    }
+
+    // --- 6. FUNCIÓN PRINCIPAL DE REGISTRO DE SELECCIÓN ---
+
+    function registerSelection() {
+        const selectedOption = document.querySelector('input[name="recarga"]:checked');
+        
+        if (!selectedOption) {
+            alert('Por favor, selecciona una opción de recarga.');
+            return;
+        }
+
+        const value = selectedOption.value;
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('es-ES', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+
+        // 1. Actualizar el Contador
+        counters[value] = (counters[value] || 0) + 1;
+
+        // 2. Registrar en el Historial
+        history.push({ 
+            value: value, 
+            time: timeString 
+        });
+
+        // Limitar el historial
+        if (history.length > 50) {
+            history.shift(); 
+        }
+
+        // 3. Guardar (Guarda usando la clave del CURRENT_USER) y Actualizar la Interfaz
+        saveData();
+        updateDisplay();
+        
+        selectedOption.checked = false;
+        
+        alert(`¡Ticket de $${value} registrado con éxito por ${CURRENT_USER}!`);
+    }
+
+    // Inicializar la aplicación
+    window.onload = function() {
+        loginSection.style.display = 'block';
+        appSection.style.display = 'none';
+    };
+
+</script>
+
+</body>
+</html>
